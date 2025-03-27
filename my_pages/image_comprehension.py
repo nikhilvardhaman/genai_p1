@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import numpy as np
-import sounddevice as sd
 import io
 from scipy.io.wavfile import write
 import wave
@@ -10,15 +9,21 @@ from openai import OpenAI
 client = OpenAI(api_key=st.secrets["db_password"])
 
 
-
-def speech_to_text(file_path):
-    audio_file= open(file_path, "rb")
-    transcription = client.audio.transcriptions.create(
-      model="whisper-1",
-      file=audio_file
-    )
-    print("transcript:")
-    print(transcription.text)
+def speech_to_text(audio_file):
+    # Save the uploaded audio file to a temporary WAV file
+    temp_file_path = "temp_audio.wav"
+    with open(temp_file_path, "wb") as f:
+        f.write(audio_file.getvalue())
+ 
+    # Use the OpenAI Whisper API to transcribe the audio
+    with open(temp_file_path, "rb") as f:
+        transcription = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f
+        )
+ 
+    # Access the transcription text as an attribute
+    st.write("Transcript:", transcription.text)
     return transcription.text
 
 
@@ -89,29 +94,46 @@ def app():
             st.session_state.image_generated = True
             print(st.session_state.image_generated)
         st.image(st.session_state.image_url, caption='Describe this image.')
-        st.subheader('You have to describe and talk about what you see in the image. Take yur time look and analyse the image think about what you want to say and then start.\n You will have 30 seconds to speak about it. Focus on rich decription fluid speech.')
 
-        if st.button('Start Talking'):
-            st.session_state.recording_started = True
-            duration = 30  # seconds
-            sample_rate = 44100  # Sample rate
-            st.write('Recording started... speak now!')
-            myrecording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
-            sd.wait()  # Wait until recording is finished
-            st.write('Recording Done!')
-            st.session_state.recording_started = False
-            # Convert the NumPy array to audio file
-            st.write('Recording stopped.')
-            output_file = "output2.wav"
-            with wave.open(output_file, 'w') as wf:
-                wf.setnchannels(1)  # Stereo
-                wf.setsampwidth(2)  # Sample width in bytes
-                wf.setframerate(sample_rate)
-                wf.writeframes(myrecording.tobytes())
-
-            print(f"Audio saved to {output_file}")
-            user_description = speech_to_text("output2.wav")
+        st.subheader("Click on mic button below and record your description. Focus on fluency and rich description.")
+ 
+        # Record audio using st.audio_input
+        audio_value = st.audio_input(label="Record your description", disabled=False)
+ 
+        if audio_value:
+            # When audio is recorded, process it
+            st.write("Audio recorded, processing now...")
+            user_description = speech_to_text(audio_value)
+ 
+            # Get model description of the image
             model_description = describe_image(st.session_state.image_url)
+ 
+            # Compare descriptions and provide feedback
             compare_descriptions(model_description, user_description)
+
+        # st.subheader('You have to describe and talk about what you see in the image. Take yur time look and analyse the image think about what you want to say and then start.\n You will have 30 seconds to speak about it. Focus on rich decription fluid speech.')
+
+        # if st.button('Start Talking'):
+        #     st.session_state.recording_started = True
+        #     duration = 30  # seconds
+        #     sample_rate = 44100  # Sample rate
+        #     st.write('Recording started... speak now!')
+        #     myrecording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
+        #     sd.wait()  # Wait until recording is finished
+        #     st.write('Recording Done!')
+        #     st.session_state.recording_started = False
+        #     # Convert the NumPy array to audio file
+        #     st.write('Recording stopped.')
+        #     output_file = "output2.wav"
+        #     with wave.open(output_file, 'w') as wf:
+        #         wf.setnchannels(1)  # Stereo
+        #         wf.setsampwidth(2)  # Sample width in bytes
+        #         wf.setframerate(sample_rate)
+        #         wf.writeframes(myrecording.tobytes())
+
+        #     print(f"Audio saved to {output_file}")
+        #     user_description = speech_to_text("output2.wav")
+        #     model_description = describe_image(st.session_state.image_url)
+        #     compare_descriptions(model_description, user_description)
 
 

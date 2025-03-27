@@ -2,6 +2,6 @@ numpy
 pandas
 streamlit
 openai
-sounddevice
+#sounddevice
 scipy
 wave
